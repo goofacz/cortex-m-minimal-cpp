@@ -1,0 +1,49 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Set paths
+#TOOLCHAIN_PATH = 
+#JLINK_PATH = 
+
+CXX = $(TOOLCHAIN_PATH)/arm-none-eabi-g++
+OBJCPY = $(TOOLCHAIN_PATH)/arm-none-eabi-objcopy
+GDB = $(TOOLCHAIN_PATH)/arm-none-eabi-gdb
+ 
+CXX_CPU_FLAGS = -mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-sp-d16 -mabi=aapcs 
+CXX_DEBUG_FLAGS = -g
+CXX_OTHER_FLAGS = -ffunction-sections -fdata-sections -nostdlib 
+CXX_OPTIMIZATION_FLAGS = -O0
+CXX_LANGUAGE_FLAGS = -std=c++11 -fno-rtti -fno-exceptions -fno-unwind-tables
+
+CXXFLAGS = $(CXX_CPU_FLAGS) $(CXX_DEBUG_FLAGS) $(CXX_OTHER_FLAGS) $(CXX_OPTIMIZATION_FLAGS) $(CXX_LANGUAGE_FLAGS)
+LD_FLAGS = -T cortex_m4.ld -Wl,-Map=project.map -Wl,--gc-sections -nostartfiles
+ 
+SOURCES = vector_table.cpp interrupt.cpp application.cpp cpp_runtime.cpp
+OBJECTS = $(SOURCES:.cpp=.o)
+
+all: project.hex project.bin
+
+%.o : %.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+ 
+project.elf: $(OBJECTS)
+	$(CXX) -o $@ $(CXXFLAGS) $(LD_FLAGS) $^
+ 
+project.bin: project.elf
+	$(OBJCPY) -O binary $^ $@
+ 
+project.hex: project.elf
+	$(OBJCPY) -O ihex $^ $@
+ 
+clean:
+	rm -rf *.o *.elf *.bin *.hex *.map
+	
+flash:
+	$(JLINK_PATH)/JLinkExe -if swd -device nrf52832_xxaa -speed auto -CommanderScript jlink_exe_commands
+	
+gdbserver:
+	$(JLINK_PATH)/JLinkGDBServer -if swd -device nrf52832_xxaa -speed auto
+	
+gdb:
+	$(GDB) --command=gdb_commands
